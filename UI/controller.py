@@ -18,13 +18,13 @@ class Controller:
         if ratings1 is None:
             self._view.txt_result.controls.clear()
             self._view.txt_result.controls.append(ft.Text(
-                f"Seleziona un rating iniziale", color="red"))
+                f"Seleziona una data iniziale", color="red"))
             self._view.update_page()
             return
         if ratings2 is None:
             self._view.txt_result.controls.clear()
             self._view.txt_result.controls.append(ft.Text(
-                f"Seleziona un rating finale ", color="red"))
+                f"Seleziona una data finale ", color="red"))
             self._view.update_page()
             return
 
@@ -46,29 +46,23 @@ class Controller:
             self._view.txt_result.controls.append(ft.Text(f"{o} -> {d}: {score}"))
         self._view.update_page()
 
-        #compoennti
-        numComponenti = self._model.getComponenti()
+        #bestNodes
 
-        self._view.txt_result.controls.append(ft.Text(f"Il grafo ha {numComponenti} componenti connesse",
-                                                      color="green"))
-
-        MaxComponenti = self._model.getBiggestComponent()
-
-        self._view.txt_result.controls.append(ft.Text(
-            f"Componente più grande ({len(MaxComponenti)} nodi)",
-            color="green "))
-
-        for p in MaxComponenti:
-            self._view.txt_result.controls.append(ft.Text(
-                f"{p}"))
-
-
+        bestFilm = self._model._getBestFilm()
+        self._view.txt_result.controls.append(ft.Text("MIGLIOR FILM", color="green"))
+        film,score= bestFilm
+        self._view.txt_result.controls.append(ft.Text(f"{film} -> {score}"))
         self._view.update_page()
+
 
     def handleCammino(self, e):
 
         # CERCO CAMMINO MINIMO
-        cammino, score = self._model.getPath()
+        bestFilm = self._model._getBestFilm()
+        film, score = bestFilm
+
+        MaxArchi= 10
+        cammino, score = self._model.getPath(film,MaxArchi )
 
         self._view.txt_result.controls.clear()
 
@@ -99,11 +93,11 @@ class Controller:
 
 
 
-    def fillDDsRating(self):
-        ratings = self._model.getAllRate()
-        ratingsDD = list(map(lambda x: ft.dropdown.Option(x), ratings))
+    def fillDDsDate(self):
+        date = self._model.getAllDate()
+        dateDD = list(map(lambda x: ft.dropdown.Option(x), date))
 
-        self._view._ddrating1.options = ratingsDD
-        self._view._ddrating2.options = ratingsDD
+        self._view._ddrating1.options = dateDD
+        self._view._ddrating2.options = dateDD
 
         self._view.update_page()

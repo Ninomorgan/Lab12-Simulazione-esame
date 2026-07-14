@@ -9,43 +9,66 @@ from database.DAO import DAO
 class Model:
     def __init__(self):
 
-      #METODI PER CREARE GRAFICI
-
-        self._grafo = nx.Graph()  # grafo semplice non diretto
+        self._idMapInfo = None
+        self._grafo = nx.DiGraph() #grafo diretto
 
 
         self._attori=[] #lista nodi
-        self._idMapAttori={}
+        self._idMapAttori = {}
+
+        self._film= []
+        self._idMapFilm = {}
+
 
         self._bestCammino = []
         self._bestScore = 0
 
 
-    def getAllRate(self): #2 aggiungere da dao a model - ora mettre su controller
-        return DAO.getAllRate()
+    def getAllDate(self): #2 aggiungere da dao a model - ora mettre su controller
+        return DAO.getAllDate()
 
-    def getALlActors(self, rate1, rate2): #nodi
-        return DAO.getAllActors(rate1, rate2)
+    def getAllFilms(self , date1, date2): #nodi
+        return DAO.getAllFilms(date1, date2)
 
-    def getAllEdges(self, rate1, rate2, idMapAttori):
-        return DAO.getAllEdges(rate1, rate2, idMapAttori)
 
-    def creaGrafo(self, rate1, rate2):
+
+    def creaGrafo(self, date1, date2):
         self._grafo.clear()
 
         # agggiungiamo nodi
-        self._attori = self.getALlActors( rate1, rate2)
-        self._grafo.add_nodes_from(self._attori)
+        self._film = self.getAllFilms(date1, date2)
+        self._grafo.add_nodes_from(self._film)
 
         #mappa NODI --> dato un ID riprendiamo un Oggeto
-        for n in self._attori:
-            self._idMapAttori[n.id] = n
+        for n in self._film:
+            self._idMapFilm[n.id] = n
 
         #aggiungiamo archi
-        edges = self.getAllEdges(rate1, rate2, self._idMapAttori)
-        for  a1, a2, peso  in edges:
-            self._grafo.add_edge(a1, a2, weight=peso)
+        self._idMapInfo = DAO.getInfoFilm(date1, date2)
+        edges = DAO.getAllEdges()
+        for id1, id2, attoriComuni in edges:
 
+            # Tengo solo coppie formate da film presenti nei nodi
+            if id1 in self._idMapFilm and id2 in self._idMapFilm:
+
+               # Recupero rating e incasso dai nodi
+                film1 = self._idMapFilm[id1]
+                film2 = self._idMapFilm[id2]
+
+                rating1, incasso1 = self._idMapInfo[id1]
+                rating2, incasso2 = self._idMapInfo[id2]
+
+                peso = attoriComuni
+
+                if rating1 > rating2:
+                    self._grafo.add_edge(film1, film2, weight=peso)
+
+                elif rating2 > rating1:
+                    self._grafo.add_edge(film2, film1, weight=peso)
+
+                else:
+                    self._grafo.add_edge(film1, film2, weight=peso)
+                    self._grafo.add_edge(film2, film1, weight=peso)
         #aggiugno nodi direzione
 
 
@@ -72,63 +95,90 @@ class Model:
         result.sort(key=lambda x: (x[2], str(x[0])), reverse=True) #ordino per il TERZO PARAMETRO x[2]
 
 
-        return result[:5] #prendo i primi [5
-    #GESTIONE COMPONENTI
-    def getComponenti(self):
-        return nx.number_connected_components(self._grafo)
+        return result[:5] #prendo i primi [5]
 
-    def getBiggestComponent(self):
-        componenti = list(nx.connected_components(self._grafo))
-        componenti.sort(
-            key=lambda c: (len(c), max(str(a) for a in c)),
-            reverse=True
-        )
+    def _getBestProdotti(self):
 
-        return list(componenti[0])
-        # compMax = max(componenti, key=len)
-        # result = list(compMax)
-        # return result
-        # CAMMINO MINIMO
+            result = []
+            for p in self._grafo.nodes:
+                totUscenti = 0
+                totEntranti = 0
+                score = 0
+                for o,d in self._grafo.in_edges(p): #origine , destinazione
+                    peso= self._grafo[o][d]['weight']
+                    totEntranti+=peso
 
-    def getPath(self):  # partenza, arrivo, lunghezza max
+                for o,d in self._grafo.out_edges(p):
+                    peso = self._grafo[o][d]['weight']
+                    totUscenti += peso
+
+                score = totUscenti-totEntranti
+                result.append((p, score))
+
+            result.sort(key=lambda x: x[1], reverse=True)
+
+            return result[:5] #UNO SOLO = [0]
+
+    def _getBestFilm(self):
+
+            result = []
+            for p in self._grafo.nodes:
+                totUscenti = 0
+                totEntranti = 0
+                score = 0
+                for o,d in self._grafo.in_edges(p): #origine , destinazione
+                    peso= self._grafo[o][d]['weight']
+                    totEntranti+=peso
+
+                for o,d in self._grafo.out_edges(p):
+                    peso = self._grafo[o][d]['weight']
+                    totUscenti += peso
+
+                score = totUscenti-totEntranti
+                result.append((p, score))
+
+            result.sort(key=lambda x: x[1], reverse=True)
+
+            return result[0] #UNO SOLO = [0]
+
+
+    def getPath(self, partenza,maxArchi):  # partenza, arrivo, lunghezza max
         self._bestCammino = []
         self._bestScore = 0
 
-        for n in self._grafo.nodes():
-            parziale = [n]
-            self._ricorsione(parziale)
-
-
-        # GRAFO NORMALE
-
+        parziale = [partenza]
+        for v in self._grafo.successors(partenza): #self._grafo.neighbors(partenza)
+            parziale.append(v)
+            self._ricorsione(parziale, maxArchi)
             parziale.pop()
         return self._bestCammino, self._bestScore
 
-        # VARIA
 
-    def _ricorsione(self, parziale):
+    def _ricorsione(self, parziale, maxArchi):
+        score = self.score(parziale)
+        if score > self._bestScore:
+            self._bestCammino = copy.deepcopy(parziale)
+            self._bestScore = score
 
-        # 1) parziale uguale best score e terminate
-        # condizione che mi fa terminare
+        if len(parziale) - 1 == maxArchi:
+            return
 
-            if self._score(parziale) > self._bestScore:
-                self._bestCammino = copy.deepcopy(parziale)
-                self._bestScore = self._score(parziale)
+        vicini = self._grafo.successors(parziale[-1])
 
+        # 4. Ricorsione
+        for v in vicini:
+            # arco che sto provando ad aggiungere
+            pesoNuovo = self._grafo[parziale[-1]][v]["weight"]
 
-        # 3)RICORSIONE
-        # GRAFO NON DIRETTO
-                #gesione sui nodi
-            for v in self._grafo.neighbors(parziale[-1]):
-                # ultimo nodo aggiunto ha peso maggiore
-                if v.date_of_birth > parziale[-1].date_of_birth and v not in parziale:
-                    parziale.append(v)
-                    self._ricorsione(parziale)
-                    parziale.pop()
+            # il nuovo arco deve avere peso maggiore del precedente
+            pesoPrec = self._grafo[parziale[-2]][parziale[-1]]["weight"]
 
-        # UGUALEE
+            if pesoPrec < pesoNuovo and v not in parziale:  # > per peso decrescente
+                parziale.append(v)
+                self._ricorsione(parziale, maxArchi)
+                parziale.pop()
 
-    def _score(self, parziale):  # UGUALE
+    def score(self, parziale):  # UGUALE
 
         # arrivano nodi e preso il parziale e quellodopo prende il peso e lo somma a score
         score = 0

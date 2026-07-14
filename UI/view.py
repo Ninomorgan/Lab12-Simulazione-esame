@@ -26,7 +26,7 @@ class View(ft.UserControl):
 
         self._ddrating1 = ft.Dropdown(label="Voto", hint_text="Rating")
         self._ddrating2 = ft.Dropdown(label="Voto", hint_text="Rating")
-        self._controller.fillDDsRating()
+        self._controller.fillDDsDate()
         self._btnCreaGrafo = ft.ElevatedButton(text="Crea Grafo", on_click=self._controller.handleCreaGrafo)
 
         row1 = ft.Row([self._ddrating1,self._ddrating2, self._btnCreaGrafo], alignment=ft.MainAxisAlignment.CENTER,
